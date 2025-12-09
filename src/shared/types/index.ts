@@ -147,7 +147,7 @@ export interface MarketingAction {
 }
 
 // Studio tab types for multi-tab interface
-export type StudioTabType = 'report' | 'marketing-post' | 'placestory'
+export type StudioTabType = 'report' | 'marketing-post' | 'placestory' | 'presentation'
 
 export interface StudioTab {
   id: string
@@ -157,6 +157,52 @@ export interface StudioTab {
   // Content depends on type
   reportUrl?: string | null
   marketingPost?: MarketingPost | null
+  presentation?: Presentation | null
+}
+
+// ============== Presentation Types ==============
+// Types for PowerPoint slide generation feature
+
+export type PresentationTemplate =
+  | 'executive-summary'
+  | 'franchise-pitch'
+  | 'marketing-strategy'
+  | 'quarterly-review'
+
+export interface PresentationTemplateInfo {
+  id: PresentationTemplate
+  name: string
+  description: string
+  slideCount: string
+  icon: string
+}
+
+export interface PresentationSlide {
+  id: string
+  title: string
+  content: string
+  notes?: string
+  imageUrl?: string
+}
+
+export interface Presentation {
+  id: string
+  storeId: string
+  storeName: string
+  template: PresentationTemplate
+  title: string
+  slides: PresentationSlide[]
+  downloadUrl: string | null
+  isGenerating: boolean
+  createdAt: Date
+}
+
+export type PresentationActionType = 'generate' | 'preview' | 'download'
+
+export interface PresentationAction {
+  type: PresentationActionType
+  presentation?: Presentation
+  downloadUrl?: string
 }
 
 // ============== Folder (Project) Types ==============

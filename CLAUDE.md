@@ -41,9 +41,10 @@ This is the frontend application for **MarketInsightsAI** - an autonomous AI age
 | Vite | 7 | Build tool |
 | Tailwind CSS | 4 | Styling |
 | TanStack Query | 5 | Data fetching |
-| React Router | 7 | Routing |
+| React Router | 7 | Routing (import from 'react-router') |
 | ArcGIS Maps SDK | 4.34 | Mapping |
 | Lucide React | - | Icons |
+| Sentry | - | Error monitoring |
 
 ---
 
@@ -260,7 +261,32 @@ const response = await fetch(`${API_BASE}/api/chat`, {
 
 ## 10. Environment
 
-No `.env` file needed for development. API URL is auto-detected.
+### `.env` file
+
+Create `.env` from `.env.example`:
+
+```bash
+# Sentry Error Monitoring (get from sentry.io)
+VITE_SENTRY_DSN=https://your-dsn@sentry.io/project-id
+VITE_SENTRY_ENVIRONMENT=development
+```
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VITE_SENTRY_DSN` | No | Sentry DSN for error tracking |
+| `VITE_SENTRY_ENVIRONMENT` | No | Environment name (development/production) |
+| `VITE_API_URL` | No | API URL override (auto-detected if not set) |
+
+### API URL Detection
+
+```typescript
+// Auto-detected in useApi.ts
+const API_BASE = import.meta.env.DEV
+  ? 'http://localhost:8000'
+  : '';  // Same origin in production
+```
 
 For production, Vercel handles the configuration.
 
@@ -307,4 +333,10 @@ The API client handles this transformation.
 
 ---
 
-*Last updated: December 2024*
+*Last updated: December 9, 2024*
+
+### Changelog
+- **Fixed**: Migrated from deprecated `react-router-dom` to `react-router` (v7 standard)
+- **Added**: Sentry error monitoring integration
+- **Added**: `.env` file support with `.env.example` template
+- **Updated**: All packages to latest versions

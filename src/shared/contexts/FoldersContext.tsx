@@ -285,7 +285,7 @@ export function FoldersProvider({ children }: FoldersProviderProps) {
   // Add a message to a chat (this will be called by the chat component)
   // Note: The actual API call happens in the chat endpoint, this just updates local state
   const addMessage = useCallback(async (
-    folderId: string,
+    _folderId: string,
     chatId: string,
     message: Omit<FolderChatMessage, 'id' | 'createdAt' | 'chatId'>
   ): Promise<FolderChatMessage> => {

@@ -1,5 +1,5 @@
 import { useState, createContext, useContext, useCallback } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet } from 'react-router'
 import { Sidebar } from './Sidebar'
 import { PublicHeader } from './PublicHeader'
 import { ProjectsProvider } from '@/shared/contexts/ProjectsContext'

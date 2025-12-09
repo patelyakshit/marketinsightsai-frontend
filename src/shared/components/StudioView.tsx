@@ -19,9 +19,11 @@ import {
   Save,
   Copy,
   Check,
+  Presentation,
+  ChevronRight,
 } from 'lucide-react'
 import { Button } from '@/shared/components/ui/button'
-import type { Store, StudioTab, MarketingPost } from '@/shared/types'
+import type { Store, StudioTab, MarketingPost, Presentation as PresentationType } from '@/shared/types'
 
 interface StudioViewProps {
   stores: Store[]
@@ -38,6 +40,7 @@ interface StudioViewProps {
   onTabClose?: (tabId: string) => void
   onSaveToLibrary?: (tab: StudioTab) => void
   onRegenerateImage?: (post: MarketingPost) => void
+  onDownloadPresentation?: (presentation: PresentationType) => void
 }
 
 // Platform icon mapping
@@ -68,6 +71,7 @@ export function StudioView({
   onTabClose,
   onSaveToLibrary,
   onRegenerateImage,
+  onDownloadPresentation,
 }: StudioViewProps) {
   const [showShareMenu, setShowShareMenu] = useState(false)
 
@@ -134,6 +138,8 @@ export function StudioView({
                 <FileText className="h-3.5 w-3.5 shrink-0" />
               ) : tab.type === 'marketing-post' && tab.marketingPost ? (
                 <PlatformIcon platform={tab.marketingPost.platform} />
+              ) : tab.type === 'presentation' ? (
+                <Presentation className="h-3.5 w-3.5 shrink-0" />
               ) : (
                 <Image className="h-3.5 w-3.5 shrink-0" />
               )}
@@ -174,6 +180,14 @@ export function StudioView({
               <PlatformIcon platform={activeTab.marketingPost.platform} />
               <span className="text-sm font-medium">
                 {activeTab.marketingPost.platform.charAt(0).toUpperCase() + activeTab.marketingPost.platform.slice(1)} Post
+              </span>
+            </>
+          )}
+          {showTabContent && activeTab?.type === 'presentation' && activeTab.presentation && (
+            <>
+              <Presentation className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">
+                {activeTab.presentation.title || 'Presentation'}
               </span>
             </>
           )}
@@ -224,6 +238,36 @@ export function StudioView({
               >
                 <Download className="h-3.5 w-3.5" />
                 Download
+              </Button>
+            </>
+          )}
+          {/* Presentation actions */}
+          {showTabContent && activeTab?.type === 'presentation' && activeTab.presentation && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5"
+                onClick={() => onSaveToLibrary?.(activeTab)}
+              >
+                <Save className="h-3.5 w-3.5" />
+                Save
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5"
+                onClick={() => {
+                  if (activeTab.presentation?.downloadUrl) {
+                    window.open(activeTab.presentation.downloadUrl, '_blank')
+                  } else if (onDownloadPresentation && activeTab.presentation) {
+                    onDownloadPresentation(activeTab.presentation)
+                  }
+                }}
+                disabled={!activeTab.presentation.downloadUrl && activeTab.presentation.isGenerating}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Download PPTX
               </Button>
             </>
           )}
@@ -314,6 +358,14 @@ export function StudioView({
                 title="Report Preview"
               />
             </div>
+          )}
+
+          {/* Presentation Canvas */}
+          {showTabContent && activeTab?.type === 'presentation' && (
+            <PresentationCanvas
+              presentation={activeTab.presentation}
+              isLoading={activeTab.isLoading}
+            />
           )}
 
           {/* Legacy: Generating Report */}
@@ -666,6 +718,206 @@ function MarketingPostCanvas({
             )}
           </Button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// Presentation Canvas Component - Slide preview and navigation
+function PresentationCanvas({
+  presentation,
+  isLoading,
+}: {
+  presentation: PresentationType | null | undefined
+  isLoading: boolean
+}) {
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="relative w-80 h-48 mx-auto mb-4">
+            {/* Shimmer effect for slide placeholder */}
+            <div className="absolute inset-0 bg-gradient-to-r from-muted via-muted-foreground/10 to-muted rounded-lg animate-pulse" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground">Generating your presentation...</p>
+          <p className="text-xs text-muted-foreground mt-1">This may take a few moments</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!presentation) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <Presentation className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <p className="text-sm text-muted-foreground">No presentation to display</p>
+        </div>
+      </div>
+    )
+  }
+
+  const slides = presentation.slides || []
+  const currentSlide = slides[currentSlideIndex]
+  const totalSlides = slides.length
+
+  const goToNextSlide = () => {
+    if (currentSlideIndex < totalSlides - 1) {
+      setCurrentSlideIndex(currentSlideIndex + 1)
+    }
+  }
+
+  const goToPrevSlide = () => {
+    if (currentSlideIndex > 0) {
+      setCurrentSlideIndex(currentSlideIndex - 1)
+    }
+  }
+
+  const templateColors: Record<string, { bg: string; accent: string }> = {
+    'executive-summary': { bg: 'from-blue-600 to-blue-800', accent: 'bg-blue-500' },
+    'franchise-pitch': { bg: 'from-emerald-600 to-emerald-800', accent: 'bg-emerald-500' },
+    'marketing-strategy': { bg: 'from-purple-600 to-purple-800', accent: 'bg-purple-500' },
+    'quarterly-review': { bg: 'from-orange-600 to-orange-800', accent: 'bg-orange-500' },
+  }
+
+  const colors = templateColors[presentation.template] || templateColors['executive-summary']
+
+  return (
+    <div className="h-full overflow-auto">
+      <div className="flex flex-col h-full p-6">
+        {/* Presentation Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold">{presentation.title}</h2>
+            <p className="text-sm text-muted-foreground">
+              {presentation.storeName} • {totalSlides} slides
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`px-2.5 py-1 rounded-full text-xs font-medium text-white ${colors.accent}`}>
+              {presentation.template.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+            </span>
+          </div>
+        </div>
+
+        {/* Main Slide Preview */}
+        <div className="flex-1 flex flex-col min-h-0">
+          {/* Slide Display */}
+          <div className={`
+            flex-1 rounded-xl overflow-hidden shadow-xl
+            bg-gradient-to-br ${colors.bg} text-white
+            flex flex-col
+          `}>
+            {currentSlide ? (
+              <div className="flex-1 flex flex-col p-8">
+                {/* Slide Title */}
+                <h3 className="text-2xl font-bold mb-6">{currentSlide.title}</h3>
+
+                {/* Slide Content */}
+                <div className="flex-1 overflow-auto">
+                  <div className="prose prose-invert prose-sm max-w-none">
+                    <p className="text-lg leading-relaxed whitespace-pre-wrap opacity-90">
+                      {currentSlide.content}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Slide Number */}
+                <div className="mt-auto pt-4 flex items-center justify-between text-sm opacity-70">
+                  <span>{presentation.storeName}</span>
+                  <span>Slide {currentSlideIndex + 1} of {totalSlides}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-white/70">No slides available</p>
+              </div>
+            )}
+          </div>
+
+          {/* Navigation Controls */}
+          <div className="flex items-center justify-center gap-4 mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={goToPrevSlide}
+              disabled={currentSlideIndex === 0}
+              className="gap-1"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+
+            <div className="flex items-center gap-1">
+              {slides.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentSlideIndex(index)}
+                  className={`
+                    w-2 h-2 rounded-full transition-all
+                    ${index === currentSlideIndex
+                      ? 'bg-primary w-4'
+                      : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'}
+                  `}
+                />
+              ))}
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={goToNextSlide}
+              disabled={currentSlideIndex === totalSlides - 1}
+              className="gap-1"
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Slide Thumbnails */}
+        {slides.length > 1 && (
+          <div className="mt-4 pt-4 border-t">
+            <p className="text-xs font-medium text-muted-foreground mb-2">All Slides</p>
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {slides.map((slide, index) => (
+                <button
+                  key={slide.id}
+                  onClick={() => setCurrentSlideIndex(index)}
+                  className={`
+                    shrink-0 w-32 h-20 rounded-lg overflow-hidden border-2 transition-all
+                    bg-gradient-to-br ${colors.bg}
+                    ${index === currentSlideIndex
+                      ? 'border-primary ring-2 ring-primary/20'
+                      : 'border-transparent hover:border-muted-foreground/30'}
+                  `}
+                >
+                  <div className="h-full p-2 flex flex-col text-white">
+                    <p className="text-[8px] font-semibold truncate">{slide.title}</p>
+                    <p className="text-[6px] opacity-70 line-clamp-2 mt-0.5">{slide.content}</p>
+                    <span className="mt-auto text-[7px] opacity-50">{index + 1}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Speaker Notes */}
+        {currentSlide?.notes && (
+          <div className="mt-4 pt-4 border-t">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Speaker Notes</p>
+            <div className="bg-muted/50 rounded-lg p-3">
+              <p className="text-sm text-muted-foreground">{currentSlide.notes}</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

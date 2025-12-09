@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, memo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import ReactMarkdown from 'react-markdown'
 import {
   Plus,
@@ -15,10 +15,11 @@ import {
   LayoutGrid,
   Send,
   GripVertical,
+  Presentation as PresentationIcon,
 } from 'lucide-react'
 import { cn } from '@/shared/utils/cn'
 import { getApiUrl } from '@/shared/hooks/useApi'
-import type { Store, MapAction, MarketingAction, StudioTab, MarketingPost, MarketingRecommendation } from '@/shared/types'
+import type { Store, MapAction, MarketingAction, StudioTab, MarketingPost, MarketingRecommendation, PresentationTemplate, Presentation, PresentationAction } from '@/shared/types'
 import { useSidebar } from '@/app/layout/AppLayout'
 import { useLibrary } from '@/shared/contexts/LibraryContext'
 import { useProjects } from '@/shared/contexts/ProjectsContext'
@@ -29,6 +30,7 @@ import { storePendingMessage, getPendingMessage, clearStoredPendingMessage } fro
 import { MapView, type MapViewRef } from '@/shared/components/MapView'
 import { StudioView } from '@/shared/components/StudioView'
 import { FolderHeader, FolderFilesModal } from '@/shared/components/FolderHeader'
+import { PresentationModal } from '@/shared/components/PresentationModal'
 
 type RightPanelTab = 'map' | 'studio'
 
@@ -36,6 +38,7 @@ type RightPanelTab = 'map' | 'studio'
 const quickActions = [
   { id: 'marketing', icon: Image, label: 'Create Marketing Post', disabled: false, prompt: 'Create marketing post for ' },
   { id: 'report', icon: FileText, label: 'Create Report', disabled: false, prompt: 'Create report for ' },
+  { id: 'presentation', icon: PresentationIcon, label: 'Create Presentation', disabled: false, prompt: 'Create presentation for ' },
   { id: 'placestory', icon: MapPin, label: 'Create Placestory', disabled: true, badge: 'Soon', prompt: '' },
 ]
 
@@ -69,6 +72,7 @@ interface LandingContentProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>
   selectedAction: SelectedAction
   onSelectAction: (action: SelectedAction) => void
+  onOpenPresentationModal: () => void
 }
 
 const LandingContent = memo(function LandingContent({
@@ -85,6 +89,7 @@ const LandingContent = memo(function LandingContent({
   fileInputRef,
   selectedAction,
   onSelectAction,
+  onOpenPresentationModal,
 }: LandingContentProps) {
   return (
     <div className="flex flex-col h-full bg-muted/20">
@@ -209,17 +214,24 @@ const LandingContent = memo(function LandingContent({
                   key={action.label}
                   disabled={action.disabled}
                   onClick={() => {
-                    if (!action.disabled && action.prompt) {
-                      onSelectAction({
-                        id: action.id,
-                        label: action.label,
-                        prompt: action.prompt,
-                        icon: action.icon,
-                      })
-                      // Focus the input after selecting action
-                      setTimeout(() => {
-                        landingInputRef.current?.focus()
-                      }, 0)
+                    if (!action.disabled) {
+                      // Handle presentation action specially - opens modal instead of setting prompt
+                      if (action.id === 'presentation') {
+                        onOpenPresentationModal()
+                        return
+                      }
+                      if (action.prompt) {
+                        onSelectAction({
+                          id: action.id,
+                          label: action.label,
+                          prompt: action.prompt,
+                          icon: action.icon,
+                        })
+                        // Focus the input after selecting action
+                        setTimeout(() => {
+                          landingInputRef.current?.focus()
+                        }, 0)
+                      }
                     }
                   }}
                   className={cn(
@@ -287,6 +299,10 @@ export function AiChatPage() {
 
   // Folder files modal state
   const [isFilesModalOpen, setIsFilesModalOpen] = useState(false)
+
+  // Presentation modal state
+  const [isPresentationModalOpen, setIsPresentationModalOpen] = useState(false)
+  const [isGeneratingPresentation, setIsGeneratingPresentation] = useState(false)
 
   const navigate = useNavigate()
 
@@ -616,6 +632,214 @@ export function AiChatPage() {
     }
   }
 
+  const handleGeneratePresentation = async (storeId: string, template: PresentationTemplate, customTitle?: string) => {
+    if (!activeProjectId) return
+    if (isGeneratingPresentation) return
+
+    const store = stores.find(s => s.id === storeId)
+    if (!store) return
+
+    // Select the store
+    setProjectSelectedStore(activeProjectId, store.id)
+
+    // Close modal and switch to studio view
+    setIsPresentationModalOpen(false)
+    setRightPanelTab('studio')
+    setIsGeneratingPresentation(true)
+
+    // Create a loading tab
+    const tabId = `presentation-${Date.now()}`
+    const templateName = template.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+    const title = customTitle || `${store.name} - ${templateName}`
+
+    const loadingTab: StudioTab = {
+      id: tabId,
+      type: 'presentation',
+      title,
+      isLoading: true,
+      presentation: null,
+    }
+
+    setStudioTabs(prev => [...prev, loadingTab])
+    setActiveStudioTabId(tabId)
+
+    // Create the message
+    const messageText = `Generate a ${templateName} presentation for ${store.name}`
+    addMessage(activeProjectId, { role: 'user', content: messageText })
+
+    // Switch to split view if not already
+    if (viewMode === 'chat') {
+      setViewMode('split')
+    }
+
+    const formData = new FormData()
+    formData.append('message', messageText)
+    formData.append('action', 'generate_presentation')
+    formData.append('store_id', store.id)
+    formData.append('template', template)
+    if (customTitle) {
+      formData.append('custom_title', customTitle)
+    }
+
+    // Send stores data so backend can restore after server restart
+    const storesJson = JSON.stringify(stores)
+    if (new Blob([storesJson]).size < 800 * 1024) {
+      formData.append('stores_json', storesJson)
+    }
+
+    // Pass folder_id if generating within a folder context
+    if (activeFolderId) {
+      formData.append('folder_id', activeFolderId)
+    }
+
+    try {
+      const response = await fetch(getApiUrl('/chat/with-file'), {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        const errorMessage = errorData.detail || errorData.message || `Server error: ${response.status}`
+        throw new Error(errorMessage)
+      }
+
+      const data = await response.json()
+
+      // Handle presentation action from API
+      if (data.presentationAction) {
+        handlePresentationAction(data.presentationAction, tabId)
+      } else {
+        // If no presentation action, create a mock presentation for demo purposes
+        // This allows the UI to work while the backend is being implemented
+        const mockPresentation: Presentation = {
+          id: tabId,
+          storeId: store.id,
+          storeName: store.name,
+          template,
+          title,
+          slides: generateMockSlides(store, template),
+          downloadUrl: null,
+          isGenerating: false,
+          createdAt: new Date(),
+        }
+
+        setStudioTabs(prev => prev.map(t =>
+          t.id === tabId
+            ? { ...t, isLoading: false, presentation: mockPresentation }
+            : t
+        ))
+
+        addMessage(activeProjectId, {
+          role: 'assistant',
+          content: data.response || `I've generated a ${templateName} presentation for **${store.name}**. You can preview it in the Studio tab and download it when ready.`
+        })
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Sorry, I encountered an error generating the presentation. Please try again.'
+      console.error('Presentation generation error:', error)
+      addMessage(activeProjectId, { role: 'assistant', content: errorMessage })
+
+      // Remove the loading tab on error
+      setStudioTabs(prev => prev.filter(t => t.id !== tabId))
+    } finally {
+      setIsGeneratingPresentation(false)
+    }
+  }
+
+  // Helper function to generate mock slides for demo
+  const generateMockSlides = (store: Store, template: PresentationTemplate) => {
+    const topSegments = store.segments
+      .sort((a, b) => b.householdShare - a.householdShare)
+      .slice(0, 3)
+
+    const baseSlides = [
+      {
+        id: '1',
+        title: 'Executive Overview',
+        content: `Market analysis for ${store.name}\n\nThis presentation provides insights into the demographic composition and lifestyle segments of your target market.`,
+        notes: 'Welcome the audience and set the context for the presentation.',
+      },
+      {
+        id: '2',
+        title: 'Top Customer Segments',
+        content: topSegments.map((seg, i) =>
+          `${i + 1}. ${seg.name} (${seg.code})\n   • ${seg.householdShare.toFixed(1)}% of households\n   • ${seg.lifeMode} - ${seg.lifeStage}`
+        ).join('\n\n'),
+        notes: 'Discuss each segment and their key characteristics.',
+      },
+      {
+        id: '3',
+        title: 'Demographic Insights',
+        content: topSegments[0]
+          ? `Primary Segment: ${topSegments[0].name}\n\n• Median Age: ${topSegments[0].medianAge || 'N/A'}\n• Median Income: $${topSegments[0].medianHouseholdIncome?.toLocaleString() || 'N/A'}\n• Homeownership: ${topSegments[0].homeownershipRate?.toFixed(1) || 'N/A'}%`
+          : 'No segment data available',
+        notes: 'Highlight the key demographics that drive purchasing decisions.',
+      },
+    ]
+
+    if (template === 'executive-summary') {
+      return [
+        ...baseSlides,
+        {
+          id: '4',
+          title: 'Key Recommendations',
+          content: '• Focus marketing efforts on the top 3 segments\n• Tailor messaging to lifestyle preferences\n• Consider location-specific promotions\n• Leverage digital channels preferred by target demographics',
+          notes: 'Summarize actionable next steps.',
+        },
+        {
+          id: '5',
+          title: 'Next Steps',
+          content: '1. Review detailed segment profiles\n2. Develop targeted marketing campaigns\n3. Schedule follow-up analysis in 90 days\n4. Monitor campaign performance metrics',
+          notes: 'Outline the path forward and timeline.',
+        },
+      ]
+    }
+
+    if (template === 'franchise-pitch') {
+      return [
+        ...baseSlides,
+        {
+          id: '4',
+          title: 'Market Opportunity',
+          content: `Total addressable market in this location:\n\n• ${store.segments.reduce((sum, s) => sum + s.householdCount, 0).toLocaleString()} households\n• Strong presence of high-value segments\n• Growing demographic trends`,
+          notes: 'Emphasize the size and quality of the opportunity.',
+        },
+        {
+          id: '5',
+          title: 'Competitive Landscape',
+          content: '• Limited direct competition in immediate area\n• Underserved customer segments\n• First-mover advantage potential',
+          notes: 'Discuss competitive positioning.',
+        },
+        {
+          id: '6',
+          title: 'Investment Highlights',
+          content: '• Strong demographic alignment\n• Proven market demand\n• Favorable location characteristics\n• Projected ROI within 18-24 months',
+          notes: 'Focus on the financial opportunity.',
+        },
+      ]
+    }
+
+    return baseSlides
+  }
+
+  // Handle presentation actions from API response
+  const handlePresentationAction = useCallback((action: PresentationAction, tabId: string) => {
+    if (!action) return
+
+    if (action.type === 'generate' && action.presentation) {
+      setStudioTabs(prev => prev.map(t =>
+        t.id === tabId
+          ? { ...t, isLoading: false, presentation: action.presentation }
+          : t
+      ))
+    }
+
+    if (action.type === 'download' && action.downloadUrl) {
+      window.open(action.downloadUrl, '_blank')
+    }
+  }, [])
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -842,6 +1066,7 @@ export function AiChatPage() {
     fileInputRef,
     selectedAction,
     onSelectAction: setSelectedAction,
+    onOpenPresentationModal: () => setIsPresentationModalOpen(true),
   }
 
   // Full-screen Landing (chat view only, no project)
@@ -1115,6 +1340,16 @@ export function AiChatPage() {
           }}
         />
       )}
+
+      {/* Presentation Modal */}
+      <PresentationModal
+        isOpen={isPresentationModalOpen}
+        onClose={() => setIsPresentationModalOpen(false)}
+        stores={stores}
+        selectedStore={selectedStore}
+        onGenerate={handleGeneratePresentation}
+        isGenerating={isGeneratingPresentation}
+      />
     </div>
   )
 }

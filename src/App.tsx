@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClient } from '@/shared/hooks/useApi'
 import { AppLayout } from '@/app/layout/AppLayout'

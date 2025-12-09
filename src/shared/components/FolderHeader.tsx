@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { FolderOpen, FileText, Plus, X, Loader2 } from 'lucide-react'
 import { cn } from '@/shared/utils/cn'
-import type { Folder, FolderFile } from '@/shared/types'
+import type { Folder } from '@/shared/types'
 
 interface FolderHeaderProps {
   folder: Folder
