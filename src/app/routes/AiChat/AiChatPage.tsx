@@ -38,7 +38,7 @@ type RightPanelTab = 'map' | 'studio'
 const quickActions = [
   { id: 'marketing', icon: Image, label: 'Create Marketing Post', disabled: false, prompt: 'Create marketing post for ' },
   { id: 'report', icon: FileText, label: 'Create Report', disabled: false, prompt: 'Create report for ' },
-  { id: 'presentation', icon: PresentationIcon, label: 'Create Presentation', disabled: false, prompt: 'Create presentation for ' },
+  { id: 'presentation', icon: PresentationIcon, label: 'Create Presentation', disabled: true, badge: 'Soon', prompt: 'Create presentation for ' },
   { id: 'placestory', icon: MapPin, label: 'Create Placestory', disabled: true, badge: 'Soon', prompt: '' },
 ]
 

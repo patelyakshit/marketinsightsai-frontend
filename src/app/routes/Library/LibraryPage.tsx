@@ -19,6 +19,7 @@ import {
 import { Button } from '@/shared/components/ui/button'
 import { useLibrary } from '@/shared/contexts/LibraryContext'
 import { cn } from '@/shared/utils/cn'
+import { downloadPdf } from '@/shared/utils/downloadPdf'
 import type { LibraryCategory } from '@/shared/types'
 
 const categories: { id: LibraryCategory; label: string; icon: typeof FileText }[] = [
@@ -258,9 +259,9 @@ export function LibraryPage() {
                       size="icon"
                       onClick={(e) => {
                         e.stopPropagation()
-                        window.open(`${item.reportUrl}?download=true`, '_blank')
+                        downloadPdf(item.reportUrl)
                       }}
-                      title="Download"
+                      title="Download PDF"
                       className="rounded-xl"
                     >
                       <Download className="h-4 w-4" />

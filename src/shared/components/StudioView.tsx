@@ -23,6 +23,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { Button } from '@/shared/components/ui/button'
+import { downloadPdf } from '@/shared/utils/downloadPdf'
 import type { Store, StudioTab, MarketingPost, Presentation as PresentationType } from '@/shared/types'
 
 interface StudioViewProps {
@@ -101,7 +102,7 @@ export function StudioView({
         window.open(`mailto:?subject=Tapestry Report&body=View the report: ${window.location.origin + reportUrl}`)
         break
       case 'download':
-        window.open(`${reportUrl}?download=true`, '_blank')
+        downloadPdf(reportUrl)
         break
     }
     setShowShareMenu(false)
@@ -311,7 +312,7 @@ export function StudioView({
                 variant="outline"
                 size="sm"
                 className="h-7 gap-1.5"
-                onClick={() => window.open(`${reportUrl}?download=true`, '_blank')}
+                onClick={() => reportUrl && downloadPdf(reportUrl)}
               >
                 <Download className="h-3.5 w-3.5" />
                 Download

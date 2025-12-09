@@ -24,7 +24,12 @@ export interface ArcGISMapRef {
   zoomTo: (location: MapLocation) => void
 }
 
-esriConfig.apiKey = import.meta.env.VITE_ARCGIS_API_KEY || ''
+// Only set API key if provided - without it, some premium features won't work
+// but the map will still function with public layers
+const ARCGIS_API_KEY = import.meta.env.VITE_ARCGIS_API_KEY
+if (ARCGIS_API_KEY) {
+  esriConfig.apiKey = ARCGIS_API_KEY
+}
 
 // Custom Tapestry layer URL - set this to your enriched layer from ArcGIS Online
 // To create one: Use Map Viewer > Analysis > Enrich Layer with "2025 Dominant Tapestry Segment"
@@ -74,7 +79,7 @@ export const ArcGISMap = forwardRef<ArcGISMapRef, ArcGISMapProps>(function ArcGI
   onStoreSelect,
   center = [-96.8, 32.78], // Dallas, TX default
   zoom = 10,
-  basemap = 'arcgis/light-gray',
+  basemap = ARCGIS_API_KEY ? 'arcgis/light-gray' : 'gray-vector', // Use free basemap if no API key
   showSearch = true,
   showLocate = true,
   showHome = true,
