@@ -66,38 +66,52 @@ export function useStreamingChat(options: UseStreamingChatOptions = {}): UseStre
       let fullResponse = ''
       let parsedSources: string[] = []
 
+      let buffer = ''
+
       while (true) {
         const { done, value } = await reader.read()
 
         if (done) break
 
         const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split('\n')
+        buffer += chunk
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
+        // Process complete SSE messages (separated by double newlines)
+        const messages = buffer.split('\n\n')
+        // Keep the last incomplete message in buffer
+        buffer = messages.pop() || ''
 
-            if (data === '[DONE]') {
-              continue
-            }
+        for (const message of messages) {
+          if (!message.trim()) continue
 
-            // Check for sources marker
-            if (data.includes('__SOURCES__:')) {
-              const sourcesJson = data.split('__SOURCES__:')[1]
-              try {
-                parsedSources = JSON.parse(sourcesJson)
-                setSources(parsedSources)
-              } catch {
-                // Ignore JSON parse errors for sources
+          // Each SSE message can have multiple lines, but data is on one line
+          const lines = message.split('\n')
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6)
+
+              if (data === '[DONE]') {
+                continue
               }
-              continue
-            }
 
-            // Regular content chunk
-            fullResponse += data
-            setStreamedContent(fullResponse)
-            options.onChunk?.(data)
+              // Check for sources marker
+              if (data.includes('__SOURCES__:')) {
+                const sourcesJson = data.split('__SOURCES__:')[1]
+                try {
+                  parsedSources = JSON.parse(sourcesJson)
+                  setSources(parsedSources)
+                } catch {
+                  // Ignore JSON parse errors for sources
+                }
+                continue
+              }
+
+              // Regular content chunk - decode escaped newlines
+              const decodedData = data.replace(/\\n/g, '\n')
+              fullResponse += decodedData
+              setStreamedContent(fullResponse)
+              options.onChunk?.(decodedData)
+            }
           }
         }
       }
