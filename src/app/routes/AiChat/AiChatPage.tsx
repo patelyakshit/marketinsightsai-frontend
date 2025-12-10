@@ -45,7 +45,7 @@ type RightPanelTab = 'map' | 'studio'
 const quickActions = [
   { id: 'marketing', icon: Image, label: 'Create Marketing Post', disabled: false, prompt: 'Create marketing post for ' },
   { id: 'report', icon: FileText, label: 'Create Report', disabled: false, prompt: 'Create report for ' },
-  { id: 'presentation', icon: PresentationIcon, label: 'Create Presentation', disabled: false, prompt: '' },
+  { id: 'presentation', icon: PresentationIcon, label: 'Create Slides', disabled: true, badge: 'Soon', prompt: '' },
   { id: 'placestory', icon: MapPin, label: 'Create Placestory', disabled: true, badge: 'Soon', prompt: '' },
 ]
 
@@ -250,7 +250,7 @@ const LandingContent = memo(function LandingContent({
 
           {/* Quick Action Buttons - hide in split view for space, hide selected action */}
           {!showRightPanel && (
-            <div className="flex items-center justify-center gap-3 mt-6">
+            <div className="flex items-center justify-center gap-3 mt-6 flex-wrap">
               {quickActions
                 .filter(action => action.id !== selectedAction?.id)
                 .map((action) => (
@@ -279,14 +279,14 @@ const LandingContent = memo(function LandingContent({
                     }
                   }}
                   className={cn(
-                    'flex items-center gap-2 px-4 py-2 rounded-md border bg-background text-sm transition-colors',
+                    'flex items-center gap-2 px-4 py-2 rounded-md border bg-background text-sm transition-colors whitespace-nowrap',
                     action.disabled
                       ? 'opacity-50 cursor-not-allowed'
                       : 'hover:bg-muted'
                   )}
                 >
-                  <action.icon className="h-4 w-4 text-muted-foreground" />
-                  <span>{action.label}</span>
+                  <action.icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="whitespace-nowrap">{action.label}</span>
                   {action.badge && (
                     <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                       {action.badge}

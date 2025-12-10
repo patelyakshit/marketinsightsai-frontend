@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router'
 import { useAuth } from '@/shared/contexts/AuthContext'
-import { Loader2, Eye, EyeOff, MapPin } from 'lucide-react'
+import { Loader2, Eye, EyeOff } from 'lucide-react'
+import LogoIcon from '@/assets/logo-icon.svg?react'
+import LogoWordmark from '@/assets/logo-wordmark.svg?react'
 import '@/shared/types/google.d.ts'
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
@@ -88,10 +90,8 @@ export function LoginPage() {
       <div className="flex w-full lg:w-1/2 flex-col bg-background">
         <div className="p-8">
           <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-100">
-              <MapPin className="h-5 w-5 text-orange-500" />
-            </div>
-            <span className="text-lg font-semibold">Market Insights AI</span>
+            <LogoIcon className="h-8 w-auto text-foreground" />
+            <LogoWordmark className="h-5 w-auto text-foreground" />
           </div>
         </div>
 

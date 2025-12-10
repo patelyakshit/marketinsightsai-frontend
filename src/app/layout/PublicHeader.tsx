@@ -1,15 +1,15 @@
 import { Link } from 'react-router'
 import { LogIn, UserPlus } from 'lucide-react'
+import LogoIcon from '@/assets/logo-icon.svg?react'
+import LogoWordmark from '@/assets/logo-wordmark.svg?react'
 
 export function PublicHeader() {
   return (
     <header className="h-14 border-b bg-background px-4 flex items-center justify-between shrink-0">
       {/* Logo / Brand */}
       <div className="flex items-center gap-2">
-        <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-          <span className="text-primary-foreground font-bold text-sm">MI</span>
-        </div>
-        <span className="font-semibold text-lg">MarketInsightsAI</span>
+        <LogoIcon className="h-7 w-auto text-foreground" />
+        <LogoWordmark className="h-5 w-auto text-foreground" />
       </div>
 
       {/* Auth Buttons */}
