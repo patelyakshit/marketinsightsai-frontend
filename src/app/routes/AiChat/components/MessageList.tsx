@@ -1,5 +1,7 @@
 import { useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import remarkBreaks from 'remark-breaks'
 import {
   Copy,
   Check,
@@ -70,8 +72,8 @@ export function MessageList({
               </div>
             ) : (
               <div className="max-w-full">
-                <div className="prose prose-sm prose-zinc max-w-none text-sm leading-relaxed [&>p]:my-3 [&>ul]:my-3 [&>ol]:my-3 [&>h1]:text-base [&>h1]:font-semibold [&>h1]:mt-6 [&>h1]:mb-3 [&>h2]:text-sm [&>h2]:font-semibold [&>h2]:mt-5 [&>h2]:mb-2 [&>h3]:text-sm [&>h3]:font-medium [&>h3]:mt-4 [&>h3]:mb-2 [&>strong]:font-semibold [&>p]:text-foreground">
-                  <ReactMarkdown>{message.content}</ReactMarkdown>
+                <div className="prose prose-zinc max-w-none text-sm leading-relaxed">
+                  <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>{message.content}</ReactMarkdown>
                 </div>
                 {/* Message Actions - show on hover */}
                 <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -123,12 +125,12 @@ export function MessageList({
         {isLoading && (
           <div className="flex justify-start">
             {isStreaming && streamingContent ? (
-              // Show streaming content as it comes in
-              <div className="max-w-[85%] rounded-2xl px-4 py-3 bg-muted text-muted-foreground">
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <ReactMarkdown>{streamingContent}</ReactMarkdown>
+              // Show streaming content as it comes in (same styling as regular assistant message)
+              <div className="max-w-full">
+                <div className="prose prose-zinc max-w-none text-sm leading-relaxed">
+                  <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>{streamingContent}</ReactMarkdown>
+                  <span className="inline-block w-1.5 h-4 ml-0.5 bg-foreground/50 animate-pulse align-middle" />
                 </div>
-                <span className="inline-block w-2 h-4 ml-1 bg-primary/50 animate-pulse" />
               </div>
             ) : (
               <ThinkingIndicator

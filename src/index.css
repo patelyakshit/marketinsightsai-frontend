@@ -113,6 +113,52 @@
     @apply min-h-screen;
   }
 
+  /* Fix for Tailwind v4 prose not styling lists properly */
+  .prose ul {
+    display: block !important;
+    list-style-type: disc !important;
+    padding-left: 1.5em !important;
+    margin-top: 1em !important;
+    margin-bottom: 1em !important;
+  }
+
+  .prose ol {
+    display: block !important;
+    list-style-type: decimal !important;
+    padding-left: 1.5em !important;
+    margin-top: 1em !important;
+    margin-bottom: 1em !important;
+  }
+
+  .prose li {
+    display: list-item !important;
+    margin-top: 0.5em !important;
+    margin-bottom: 0.5em !important;
+  }
+
+  .prose p {
+    display: block !important;
+    margin-top: 1em !important;
+    margin-bottom: 1em !important;
+  }
+
+  .prose h1, .prose h2, .prose h3 {
+    display: block !important;
+    margin-top: 1.5em !important;
+    margin-bottom: 0.75em !important;
+    font-weight: 600 !important;
+  }
+
+  .prose strong {
+    font-weight: 700 !important;
+  }
+
+  .prose br {
+    display: block !important;
+    content: "" !important;
+    margin-top: 0.5em !important;
+  }
+
   /* Custom scrollbar */
   ::-webkit-scrollbar {
     width: 6px;
