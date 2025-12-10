@@ -25,6 +25,11 @@ import {
   Star,
   Sparkles,
   MapPin,
+  FileDown,
+  Check,
+  Square,
+  CheckSquare,
+  Loader2,
 } from 'lucide-react'
 import { cn } from '@/shared/utils/cn'
 import { Button } from '@/shared/components/ui/button'
@@ -43,6 +48,7 @@ interface MapViewProps {
   selectedStore: Store | null
   onStoreSelect: (store: Store) => void
   onGenerateReport: (storeName: string, customText?: string) => void
+  onBatchExport?: (storeIds: string[]) => Promise<void>
   onMapReady?: () => void
   initialToolsExpanded?: boolean
   initialActiveTab?: ToolsTab
@@ -82,12 +88,50 @@ export const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({
   selectedStore,
   onStoreSelect,
   onGenerateReport,
+  onBatchExport,
   onMapReady,
   initialToolsExpanded = false,
   initialActiveTab = 'layers'
 }, ref) {
   const arcgisMapRef = useRef<ArcGISMapRef>(null)
   const [toolsExpanded, setToolsExpanded] = useState(initialToolsExpanded)
+
+  // Batch export state
+  const [batchMode, setBatchMode] = useState(false)
+  const [selectedStoreIds, setSelectedStoreIds] = useState<Set<string>>(new Set())
+  const [isExporting, setIsExporting] = useState(false)
+
+  const toggleStoreSelection = (storeId: string) => {
+    setSelectedStoreIds(prev => {
+      const next = new Set(prev)
+      if (next.has(storeId)) {
+        next.delete(storeId)
+      } else {
+        next.add(storeId)
+      }
+      return next
+    })
+  }
+
+  const selectAllStores = () => {
+    setSelectedStoreIds(new Set(stores.map(s => s.id)))
+  }
+
+  const deselectAllStores = () => {
+    setSelectedStoreIds(new Set())
+  }
+
+  const handleBatchExport = async () => {
+    if (!onBatchExport || selectedStoreIds.size === 0) return
+    setIsExporting(true)
+    try {
+      await onBatchExport(Array.from(selectedStoreIds))
+    } finally {
+      setIsExporting(false)
+      setBatchMode(false)
+      setSelectedStoreIds(new Set())
+    }
+  }
 
   // Expose zoomTo method via ref
   useImperativeHandle(ref, () => ({
@@ -641,7 +685,7 @@ export const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({
                     <>
                       {/* Stores List - Left Panel */}
                       <div className="w-56 border-r flex flex-col shrink-0 bg-muted/10">
-                        {/* Dropdown Header */}
+                        {/* Header */}
                         <div className="flex items-center justify-between px-3 py-2.5 border-b bg-background">
                           <button className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors">
                             <StoreIcon className="h-4 w-4" />
@@ -653,39 +697,123 @@ export const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({
                           </span>
                         </div>
 
+                        {/* Batch Export Controls */}
+                        <div className="px-3 py-2 border-b bg-muted/30 space-y-2">
+                          {!batchMode ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setBatchMode(true)}
+                              className="w-full h-8 text-xs"
+                            >
+                              <FileDown className="h-3.5 w-3.5 mr-1.5" />
+                              Batch Export
+                            </Button>
+                          ) : (
+                            <>
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-medium">
+                                  {selectedStoreIds.size} selected
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    setBatchMode(false)
+                                    setSelectedStoreIds(new Set())
+                                  }}
+                                  className="text-xs text-muted-foreground hover:text-foreground"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                              <div className="flex gap-1.5">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={selectedStoreIds.size === stores.length ? deselectAllStores : selectAllStores}
+                                  className="flex-1 h-7 text-xs"
+                                >
+                                  {selectedStoreIds.size === stores.length ? (
+                                    <>
+                                      <Square className="h-3 w-3 mr-1" />
+                                      None
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckSquare className="h-3 w-3 mr-1" />
+                                      All
+                                    </>
+                                  )}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={handleBatchExport}
+                                  disabled={selectedStoreIds.size === 0 || isExporting}
+                                  className="flex-1 h-7 text-xs"
+                                >
+                                  {isExporting ? (
+                                    <>
+                                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                      Exporting...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <FileDown className="h-3 w-3 mr-1" />
+                                      Export ({selectedStoreIds.size})
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+
                         {/* Store List */}
                         <div className="flex-1 overflow-auto">
                           {stores.map((store) => (
-                            <button
+                            <div
                               key={store.id}
-                              onClick={() => onStoreSelect(store)}
+                              onClick={() => batchMode ? toggleStoreSelection(store.id) : onStoreSelect(store)}
                               className={cn(
-                                'w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors border-b border-border/50',
-                                selectedStore?.id === store.id
+                                'w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors border-b border-border/50 cursor-pointer',
+                                batchMode && selectedStoreIds.has(store.id)
+                                  ? 'bg-primary/10 text-foreground'
+                                  : selectedStore?.id === store.id && !batchMode
                                   ? 'bg-primary/10 text-foreground border-l-2 border-l-primary'
                                   : 'hover:bg-muted/50 text-muted-foreground hover:text-foreground'
                               )}
                             >
-                              <div className={cn(
-                                'flex h-7 w-7 items-center justify-center rounded shrink-0',
-                                selectedStore?.id === store.id ? 'bg-primary text-primary-foreground' : 'bg-muted'
-                              )}>
-                                <StoreIcon className="h-3.5 w-3.5" />
-                              </div>
+                              {/* Checkbox in batch mode, Store icon otherwise */}
+                              {batchMode ? (
+                                <div className={cn(
+                                  'flex h-5 w-5 items-center justify-center rounded border-2 shrink-0 transition-colors',
+                                  selectedStoreIds.has(store.id)
+                                    ? 'bg-primary border-primary text-primary-foreground'
+                                    : 'border-muted-foreground/30'
+                                )}>
+                                  {selectedStoreIds.has(store.id) && <Check className="h-3 w-3" />}
+                                </div>
+                              ) : (
+                                <div className={cn(
+                                  'flex h-7 w-7 items-center justify-center rounded shrink-0',
+                                  selectedStore?.id === store.id ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                                )}>
+                                  <StoreIcon className="h-3.5 w-3.5" />
+                                </div>
+                              )}
                               <div className="min-w-0 flex-1">
                                 <p className="text-sm font-medium truncate">{store.name}</p>
                                 <p className="text-[10px] text-muted-foreground">
                                   {store.segments.length} segments
                                 </p>
                               </div>
-                            </button>
+                            </div>
                           ))}
                         </div>
                       </div>
 
                       {/* Store Details - Right Panel */}
                       <StoreDetailPanel
-                        store={selectedStore}
+                        store={batchMode ? null : selectedStore}
                         onGenerateReport={onGenerateReport}
                       />
                     </>
