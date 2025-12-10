@@ -12,7 +12,7 @@ import { ThinkingIndicator } from '@/shared/components/ui/streaming-message'
 
 interface Message {
   id: string
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'system'
   content: string
 }
 
@@ -56,7 +56,7 @@ export function MessageList({
         'mx-auto py-6 space-y-6',
         showRightPanel ? 'max-w-full px-4' : 'max-w-3xl px-6'
       )}>
-        {messages.map((message) => (
+        {messages.filter(m => m.role !== 'system').map((message) => (
           <div
             key={message.id}
             className={cn(

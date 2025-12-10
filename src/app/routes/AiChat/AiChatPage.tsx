@@ -32,14 +32,7 @@ import { MapView, type MapViewRef } from '@/shared/components/MapView'
 import { StudioView } from '@/shared/components/StudioView'
 import { FolderHeader, FolderFilesModal } from '@/shared/components/FolderHeader'
 import { PresentationModal } from '@/shared/components/PresentationModal'
-import { AgentWorkspacePanel, type AgentTask, type AgentStep } from '@/shared/components/agent/AgentWorkspacePanel'
-import { ModelSelector, defaultModels } from '@/shared/components/model/ModelSelector'
-import { TapestryLookupWidget } from '@/shared/components/tapestry/TapestryLookupWidget'
-import { ThinkingIndicator } from '@/shared/components/ui/streaming-message'
-import { useModels } from '@/shared/hooks/useModels'
-import { useTapestry } from '@/shared/hooks/useTapestry'
 import { useSlides } from '@/shared/hooks/useSlides'
-import { useAgentEvents, ProgressEventType } from '@/shared/hooks/useWebSocket'
 import { useStreamingChat } from '@/shared/hooks/useStreamingChat'
 import { useSpeechRecognition } from '@/shared/hooks/useSpeechRecognition'
 import { logger } from '@/shared/utils/logger'
@@ -355,10 +348,6 @@ export function AiChatPage() {
   const [isPresentationModalOpen, setIsPresentationModalOpen] = useState(false)
   const [isGeneratingPresentation, setIsGeneratingPresentation] = useState(false)
 
-  // Agent transparency panel state
-  const [isAgentPanelOpen, setIsAgentPanelOpen] = useState(false)
-  const [currentAgentTask, setCurrentAgentTask] = useState<AgentTask | null>(null)
-
   // Thinking status for loading states
   const [thinkingStatus, setThinkingStatus] = useState<'thinking' | 'executing' | 'waiting' | null>(null)
 
@@ -368,12 +357,6 @@ export function AiChatPage() {
 
   const navigate = useNavigate()
   const toast = useToast()
-
-  // Model selection hook
-  const { selectedModelId, setSelectedModel, models } = useModels()
-
-  // Tapestry lookup hook
-  const tapestry = useTapestry()
 
   // Slides API hook
   const slides = useSlides()
@@ -396,7 +379,7 @@ export function AiChatPage() {
     isStreaming,
     streamedContent,
     sendStreamingMessage,
-    cancelStream,
+    cancelStream: _cancelStream,
   } = useStreamingChat({
     onComplete: (fullResponse) => {
       // Add message when streaming completes
@@ -467,7 +450,7 @@ export function AiChatPage() {
   // Show speech error as toast
   useEffect(() => {
     if (speechError) {
-      toast.addToast(speechError, 'error')
+      toast.error(speechError)
     }
   }, [speechError, toast])
 
@@ -523,7 +506,7 @@ export function AiChatPage() {
   // Toggle speech recognition
   const handleMicClick = useCallback(() => {
     if (!isSpeechSupported) {
-      toast.addToast('Speech recognition is not supported in your browser', 'error')
+      toast.error('Speech recognition is not supported in your browser')
       return
     }
     if (isListening) {
@@ -547,7 +530,7 @@ export function AiChatPage() {
     setInput(userMessage.content)
     // Note: The actual regeneration will happen when the user submits
     // For now, we'll show a toast to indicate the message is ready to regenerate
-    toast.addToast('Message copied to input. Press Send to regenerate.', 'success')
+    toast.success('Message copied to input. Press Send to regenerate.')
   }, [messages, toast])
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -1234,10 +1217,6 @@ export function AiChatPage() {
     toast.success(feedback === 'up' ? 'Thanks for the feedback!' : 'Thanks, we\'ll improve')
     // TODO: Send feedback to backend
   }, [toast])
-
-  const handleToggleAgentPanel = useCallback(() => {
-    setIsAgentPanelOpen(prev => !prev)
-  }, [])
 
   const handleToggleRightPanel = () => {
     // Toggle between chat and split view (expand/collapse)
