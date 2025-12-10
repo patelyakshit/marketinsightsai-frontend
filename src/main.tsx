@@ -26,7 +26,7 @@ if (sentryDsn) {
     tracePropagationTargets: [
       'localhost',
       /^https:\/\/marketinsightsai\.vercel\.app/,
-      /^https:\/\/marketinsightsai-api\.onrender\.com/,
+      /^https:\/\/marketinsightsai-backend-production\.up\.railway\.app/,
     ],
   })
 }
