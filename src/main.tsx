@@ -29,7 +29,6 @@ if (sentryDsn) {
       /^https:\/\/marketinsightsai-api\.onrender\.com/,
     ],
   })
-  console.log('Sentry initialized for environment:', import.meta.env.VITE_SENTRY_ENVIRONMENT || 'development')
 }
 
 createRoot(document.getElementById('root')!).render(

@@ -1,49 +1,8 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
 import type { Project, ChatMessage, Store } from '@/shared/types'
+import { loadFromStorage, saveToStorage } from '@/shared/utils/serialization'
 
 const STORAGE_KEY = 'marketinsights_projects'
-
-// Helper to serialize projects for localStorage (handle Date objects)
-function serializeProjects(projects: Project[]): string {
-  return JSON.stringify(projects, (_key, value) => {
-    if (value instanceof Date) {
-      return { __type: 'Date', value: value.toISOString() }
-    }
-    return value
-  })
-}
-
-// Helper to deserialize projects from localStorage (restore Date objects)
-function deserializeProjects(json: string): Project[] {
-  return JSON.parse(json, (_key, value) => {
-    if (value && typeof value === 'object' && value.__type === 'Date') {
-      return new Date(value.value)
-    }
-    return value
-  })
-}
-
-// Load projects from localStorage
-function loadProjects(): Project[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      return deserializeProjects(stored)
-    }
-  } catch (error) {
-    console.error('Failed to load projects from localStorage:', error)
-  }
-  return []
-}
-
-// Save projects to localStorage
-function saveProjects(projects: Project[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, serializeProjects(projects))
-  } catch (error) {
-    console.error('Failed to save projects to localStorage:', error)
-  }
-}
 
 interface ProjectsContextType {
   projects: Project[]
@@ -96,13 +55,13 @@ interface ProjectsProviderProps {
 }
 
 export function ProjectsProvider({ children }: ProjectsProviderProps) {
-  const [projects, setProjects] = useState<Project[]>(() => loadProjects())
+  const [projects, setProjects] = useState<Project[]>(() => loadFromStorage<Project[]>(STORAGE_KEY, []))
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
   const [isNewProject, setIsNewProject] = useState(true)  // Start with landing screen
 
   // Save projects to localStorage whenever they change
   useEffect(() => {
-    saveProjects(projects)
+    saveToStorage(STORAGE_KEY, projects)
   }, [projects])
 
   const activeProject = projects.find(p => p.id === activeProjectId) || null

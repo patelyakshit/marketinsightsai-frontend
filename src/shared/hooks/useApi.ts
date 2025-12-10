@@ -10,7 +10,11 @@ export const queryClient = new QueryClient({
 })
 
 // API base URL - uses environment variable in production, relative path in development
-const API_BASE_URL = import.meta.env.VITE_API_URL || ''
+// This is the single source of truth for the API base URL across the app
+export const API_BASE_URL = import.meta.env.VITE_API_URL || ''
+
+// API base with /api prefix (for auth, folders, etc.)
+export const API_BASE = API_BASE_URL ? `${API_BASE_URL}/api` : '/api'
 
 export function getApiUrl(endpoint: string): string {
   return `${API_BASE_URL}/api${endpoint}`

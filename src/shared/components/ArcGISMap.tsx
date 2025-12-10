@@ -195,7 +195,7 @@ export const ArcGISMap = forwardRef<ArcGISMapRef, ArcGISMapProps>(function ArcGI
         })
 
         tapestryLayer.when(
-          () => console.log('Custom Tapestry layer loaded successfully'),
+          () => {},
           (error: Error) => {
             console.error('Error loading custom Tapestry layer:', error.message)
             addFallbackLayer(map, demographicsOpacity)
@@ -204,16 +204,7 @@ export const ArcGISMap = forwardRef<ArcGISMapRef, ArcGISMapProps>(function ArcGI
 
         map.add(tapestryLayer)
       } else {
-        // Option 2: Fallback to public demographics layer
-        console.info(
-          'To display 2025 Tapestry data, set VITE_TAPESTRY_LAYER_URL in .env.\n' +
-          'Create an enriched layer in ArcGIS Online:\n' +
-          '1. Go to Map Viewer > Analysis > Enrich Layer\n' +
-          '2. Select Block Groups as input\n' +
-          '3. Search for "2025 Dominant Tapestry Segment" variable\n' +
-          '4. Run analysis and share the result\n' +
-          '5. Copy the FeatureServer URL to VITE_TAPESTRY_LAYER_URL'
-        )
+        // Fallback to public demographics layer when VITE_TAPESTRY_LAYER_URL not set
         addFallbackLayer(map, demographicsOpacity)
       }
     }
@@ -244,7 +235,7 @@ export const ArcGISMap = forwardRef<ArcGISMapRef, ArcGISMapProps>(function ArcGI
       })
 
       fallbackLayer.when(
-        () => console.log('Fallback demographics layer loaded'),
+        () => {},
         (err: Error) => console.error('Fallback layer failed:', err.message)
       )
 

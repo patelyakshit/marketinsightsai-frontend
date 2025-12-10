@@ -1,3 +1,7 @@
+import { logger } from './logger'
+
+const downloadLogger = logger.createLogger('Download')
+
 /**
  * Downloads a PDF file from a report URL.
  * Handles the conversion from HTML to PDF on the backend.
@@ -33,7 +37,7 @@ export async function downloadPdf(reportUrl: string, filename?: string): Promise
     window.URL.revokeObjectURL(url)
     document.body.removeChild(a)
   } catch (error) {
-    console.error('PDF download failed:', error)
+    downloadLogger.error('PDF download failed', error)
     // Fallback: open in new tab
     window.open(downloadUrl, '_blank')
   }

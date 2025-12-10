@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
+import { API_BASE } from '@/shared/hooks/useApi'
 
 interface User {
   id: string
@@ -33,11 +34,6 @@ export function useAuth() {
 interface AuthProviderProps {
   children: ReactNode
 }
-
-// API base URL - uses environment variable in production
-const API_BASE = import.meta.env.VITE_API_URL
-  ? `${import.meta.env.VITE_API_URL}/api`
-  : '/api'
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)

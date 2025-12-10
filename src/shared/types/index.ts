@@ -11,13 +11,30 @@ export interface TapestrySegment {
   name: string
   householdShare: number
   householdCount: number
-  lifeMode: string
-  lifeStage: string
+  lifeMode?: string
+  lifeModeCode?: string
+  lifeStage?: string
+  urbanization?: string
   description?: string
   medianAge?: number
   medianHouseholdIncome?: number
   medianNetWorth?: number
   homeownershipRate?: number
+}
+
+export interface TapestryLookupResult {
+  address: string
+  latitude: number
+  longitude: number
+  segments: TapestrySegment[]
+  totalHouseholds: number
+  dominantLifeMode?: string
+  location_info?: {
+    city?: string
+    state?: string
+    zip?: string
+    country?: string
+  }
 }
 
 export interface Store {
@@ -250,4 +267,147 @@ export interface Folder {
   fileCount: number
   chatCount: number
   files: FolderFile[]
+}
+
+// ============== Slides API Types ==============
+// Types for PowerPoint slide generation via backend API
+
+export type SlideTheme = 'default' | 'dark' | 'professional' | 'modern'
+
+export interface SlideThemeInfo {
+  id: SlideTheme
+  name: string
+  colors: {
+    primary: string
+    secondary: string
+    background: string
+    text: string
+  }
+}
+
+export interface SlideGenerationRequest {
+  prompt: string
+  theme?: SlideTheme
+  maxSlides?: number
+  storeName?: string
+  location?: string
+  segments?: TapestrySegment[]
+}
+
+export interface TapestrySlideRequest {
+  storeName: string
+  location: string
+  segments: TapestrySegment[]
+  theme?: SlideTheme
+}
+
+export interface MarketingSlideRequest {
+  campaignName: string
+  targetAudience: string
+  contentIdeas: string[]
+  keyMessages: string[]
+  channels: string[]
+  theme?: SlideTheme
+}
+
+export interface SlideGenerationResponse {
+  success: boolean
+  filename: string
+  downloadUrl: string
+  slideCount: number
+  fileSizeBytes: number
+  message: string
+}
+
+// ============== Research API Types ==============
+// Types for AI-powered research capabilities
+
+export interface ResearchRequest {
+  topic: string
+  depth?: 'quick' | 'standard' | 'comprehensive'
+  focusAreas?: string[]
+  maxSources?: number
+}
+
+export interface ResearchResult {
+  id: string
+  topic: string
+  summary: string
+  findings: ResearchFinding[]
+  sources: ResearchSource[]
+  createdAt: Date
+}
+
+export interface ResearchFinding {
+  title: string
+  content: string
+  relevance: number
+  source?: string
+}
+
+export interface ResearchSource {
+  title: string
+  url: string
+  snippet: string
+}
+
+export interface CompetitorAnalysis {
+  industry: string
+  competitors: Competitor[]
+  marketOverview: string
+}
+
+export interface Competitor {
+  name: string
+  description: string
+  strengths: string[]
+  website?: string
+}
+
+export interface TrendAnalysis {
+  topic: string
+  trends: Trend[]
+  summary: string
+}
+
+export interface Trend {
+  title: string
+  description: string
+  relevance: number
+}
+
+// ============== Agent/Task API Types ==============
+// Types for background tasks and agent workspace
+
+export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+export type TaskType = 'research' | 'report_generation' | 'slide_generation' | 'batch_analysis'
+
+export interface BackgroundTask {
+  id: string
+  type: TaskType
+  status: TaskStatus
+  progress: number
+  message: string
+  result?: unknown
+  error?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface AgentSession {
+  id: string
+  goal: string
+  status: 'active' | 'completed' | 'error'
+  currentStep?: string
+  steps: AgentStep[]
+  createdAt: Date
+}
+
+export interface AgentStep {
+  id: string
+  description: string
+  status: 'pending' | 'running' | 'completed' | 'error'
+  result?: string
+  startedAt?: Date
+  completedAt?: Date
 }

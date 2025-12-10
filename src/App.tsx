@@ -10,6 +10,7 @@ import { RegisterPage } from '@/app/routes/Auth/RegisterPage'
 import { LibraryProvider } from '@/shared/contexts/LibraryContext'
 import { AuthProvider } from '@/shared/contexts/AuthContext'
 import { FoldersProvider } from '@/shared/contexts/FoldersContext'
+import { ToastProvider } from '@/shared/contexts/ToastContext'
 import { ProtectedRoute } from '@/shared/components/ProtectedRoute'
 
 function App() {
@@ -18,7 +19,8 @@ function App() {
       <AuthProvider>
         <FoldersProvider>
           <LibraryProvider>
-            <BrowserRouter>
+            <ToastProvider position="bottom-right">
+              <BrowserRouter>
               <Routes>
                 {/* Auth routes (separate from main layout) */}
                 <Route path="/login" element={<LoginPage />} />
@@ -48,7 +50,8 @@ function App() {
                   />
                 </Route>
               </Routes>
-            </BrowserRouter>
+              </BrowserRouter>
+            </ToastProvider>
           </LibraryProvider>
         </FoldersProvider>
       </AuthProvider>

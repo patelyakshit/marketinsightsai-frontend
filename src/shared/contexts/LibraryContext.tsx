@@ -1,49 +1,8 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
 import type { LibraryItem, LibraryCategory } from '@/shared/types'
+import { loadFromStorage, saveToStorage } from '@/shared/utils/serialization'
 
 const STORAGE_KEY = 'marketinsights_library'
-
-// Helper to serialize library items for localStorage (handle Date objects)
-function serializeItems(items: LibraryItem[]): string {
-  return JSON.stringify(items, (_key, value) => {
-    if (value instanceof Date) {
-      return { __type: 'Date', value: value.toISOString() }
-    }
-    return value
-  })
-}
-
-// Helper to deserialize library items from localStorage (restore Date objects)
-function deserializeItems(json: string): LibraryItem[] {
-  return JSON.parse(json, (_key, value) => {
-    if (value && typeof value === 'object' && value.__type === 'Date') {
-      return new Date(value.value)
-    }
-    return value
-  })
-}
-
-// Load library items from localStorage
-function loadItems(): LibraryItem[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      return deserializeItems(stored)
-    }
-  } catch (error) {
-    console.error('Failed to load library from localStorage:', error)
-  }
-  return []
-}
-
-// Save library items to localStorage
-function saveItems(items: LibraryItem[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, serializeItems(items))
-  } catch (error) {
-    console.error('Failed to save library to localStorage:', error)
-  }
-}
 
 interface LibraryContextType {
   items: LibraryItem[]
@@ -69,11 +28,11 @@ interface LibraryProviderProps {
 }
 
 export function LibraryProvider({ children }: LibraryProviderProps) {
-  const [items, setItems] = useState<LibraryItem[]>(() => loadItems())
+  const [items, setItems] = useState<LibraryItem[]>(() => loadFromStorage<LibraryItem[]>(STORAGE_KEY, []))
 
   // Save items to localStorage whenever they change
   useEffect(() => {
-    saveItems(items)
+    saveToStorage(STORAGE_KEY, items)
   }, [items])
 
   const addItem = useCallback((itemData: Omit<LibraryItem, 'id' | 'savedAt'>) => {

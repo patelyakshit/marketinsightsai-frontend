@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback, memo } from 'react'
 import { useNavigate } from 'react-router'
-import ReactMarkdown from 'react-markdown'
 import {
   Plus,
   Loader2,
@@ -17,6 +16,7 @@ import {
   GripVertical,
   Presentation as PresentationIcon,
 } from 'lucide-react'
+import { ChatInput, MessageList } from './components'
 import { cn } from '@/shared/utils/cn'
 import { getApiUrl } from '@/shared/hooks/useApi'
 import type { Store, MapAction, MarketingAction, StudioTab, MarketingPost, MarketingRecommendation, PresentationTemplate, Presentation, PresentationAction } from '@/shared/types'
@@ -26,11 +26,25 @@ import { useProjects } from '@/shared/contexts/ProjectsContext'
 import { useFolders } from '@/shared/contexts/FoldersContext'
 import { useViewMode } from '@/shared/contexts/ViewModeContext'
 import { useAuth } from '@/shared/contexts/AuthContext'
+import { useToast } from '@/shared/contexts/ToastContext'
 import { storePendingMessage, getPendingMessage, clearStoredPendingMessage } from '@/shared/contexts/PendingMessageContext'
 import { MapView, type MapViewRef } from '@/shared/components/MapView'
 import { StudioView } from '@/shared/components/StudioView'
 import { FolderHeader, FolderFilesModal } from '@/shared/components/FolderHeader'
 import { PresentationModal } from '@/shared/components/PresentationModal'
+import { AgentWorkspacePanel, type AgentTask, type AgentStep } from '@/shared/components/agent/AgentWorkspacePanel'
+import { ModelSelector, defaultModels } from '@/shared/components/model/ModelSelector'
+import { TapestryLookupWidget } from '@/shared/components/tapestry/TapestryLookupWidget'
+import { ThinkingIndicator } from '@/shared/components/ui/streaming-message'
+import { useModels } from '@/shared/hooks/useModels'
+import { useTapestry } from '@/shared/hooks/useTapestry'
+import { useSlides } from '@/shared/hooks/useSlides'
+import { useAgentEvents, ProgressEventType } from '@/shared/hooks/useWebSocket'
+import { useStreamingChat } from '@/shared/hooks/useStreamingChat'
+import { useSpeechRecognition } from '@/shared/hooks/useSpeechRecognition'
+import { logger } from '@/shared/utils/logger'
+
+const chatLogger = logger.createLogger('AiChat')
 
 type RightPanelTab = 'map' | 'studio'
 
@@ -38,15 +52,36 @@ type RightPanelTab = 'map' | 'studio'
 const quickActions = [
   { id: 'marketing', icon: Image, label: 'Create Marketing Post', disabled: false, prompt: 'Create marketing post for ' },
   { id: 'report', icon: FileText, label: 'Create Report', disabled: false, prompt: 'Create report for ' },
-  { id: 'presentation', icon: PresentationIcon, label: 'Create Presentation', disabled: true, badge: 'Soon', prompt: 'Create presentation for ' },
+  { id: 'presentation', icon: PresentationIcon, label: 'Create Presentation', disabled: false, prompt: '' },
   { id: 'placestory', icon: MapPin, label: 'Create Placestory', disabled: true, badge: 'Soon', prompt: '' },
 ]
 
-// Suggestion cards for landing screen
-const suggestions = [
+// Default suggestion cards for landing screen (shown when no context)
+const defaultSuggestions = [
   'Is Uptown Dallas a good area for opening a car wash?',
   'Scan competition within 3 miles of Scottsdale Fashion Square.',
   'Compare Plano, TX and Frisco, TX for a new gym location.',
+]
+
+// Suggestions when stores are loaded
+const getStoreBasedSuggestions = (stores: Store[]) => {
+  if (stores.length === 0) return defaultSuggestions
+  const firstStore = stores[0]
+  const storeName = firstStore.name
+  const topSegment = firstStore.segments.sort((a, b) => b.householdShare - a.householdShare)[0]
+
+  return [
+    `Generate a marketing report for ${storeName}`,
+    `What are the key demographics for ${storeName}?`,
+    topSegment ? `Tell me about the ${topSegment.name} segment` : `Compare all my stores`,
+  ]
+}
+
+// Suggestions after file upload (no stores yet)
+const uploadSuggestions = [
+  'Analyze the top customer segments',
+  'Generate a report for all stores',
+  'Which store has the best demographics?',
 ]
 
 // Type for selected quick action
@@ -73,6 +108,9 @@ interface LandingContentProps {
   selectedAction: SelectedAction
   onSelectAction: (action: SelectedAction) => void
   onOpenPresentationModal: () => void
+  suggestions: string[]
+  isListening: boolean
+  onMicClick: () => void
 }
 
 const LandingContent = memo(function LandingContent({
@@ -90,6 +128,9 @@ const LandingContent = memo(function LandingContent({
   selectedAction,
   onSelectAction,
   onOpenPresentationModal,
+  suggestions,
+  isListening,
+  onMicClick,
 }: LandingContentProps) {
   return (
     <div className="flex flex-col h-full bg-muted/20">
@@ -172,15 +213,25 @@ const LandingContent = memo(function LandingContent({
                 )}
               </div>
               <div className="flex items-center gap-1">
-                {/* Mic button - only show when not typing */}
-                {!input.trim() && !pendingFile && !selectedAction && (
+                {/* Mic button - show when not typing or when listening */}
+                {(!input.trim() && !pendingFile && !selectedAction) || isListening ? (
                   <button
                     type="button"
-                    className="flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted transition-colors"
+                    onClick={onMicClick}
+                    className={cn(
+                      "flex h-9 w-9 items-center justify-center rounded-md transition-colors",
+                      isListening
+                        ? "bg-red-100 text-red-600 hover:bg-red-200"
+                        : "hover:bg-muted"
+                    )}
+                    title={isListening ? "Stop listening" : "Start voice input"}
                   >
-                    <Mic className="h-5 w-5 text-muted-foreground" />
+                    <Mic className={cn(
+                      "h-5 w-5",
+                      isListening ? "animate-pulse" : "text-muted-foreground"
+                    )} />
                   </button>
-                )}
+                ) : null}
                 <button
                   type="button"
                   onClick={handleSubmit}
@@ -304,11 +355,71 @@ export function AiChatPage() {
   const [isPresentationModalOpen, setIsPresentationModalOpen] = useState(false)
   const [isGeneratingPresentation, setIsGeneratingPresentation] = useState(false)
 
-  const navigate = useNavigate()
+  // Agent transparency panel state
+  const [isAgentPanelOpen, setIsAgentPanelOpen] = useState(false)
+  const [currentAgentTask, setCurrentAgentTask] = useState<AgentTask | null>(null)
 
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  // Thinking status for loading states
+  const [thinkingStatus, setThinkingStatus] = useState<'thinking' | 'executing' | 'waiting' | null>(null)
+
+  // Message actions state (for copy feedback)
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
+  const [feedbackGiven, setFeedbackGiven] = useState<Record<string, 'up' | 'down'>>({})
+
+  const navigate = useNavigate()
+  const toast = useToast()
+
+  // Model selection hook
+  const { selectedModelId, setSelectedModel, models } = useModels()
+
+  // Tapestry lookup hook
+  const tapestry = useTapestry()
+
+  // Slides API hook
+  const slides = useSlides()
+
+  // Speech recognition hook
+  const {
+    isListening,
+    transcript,
+    startListening,
+    stopListening,
+    isSupported: isSpeechSupported,
+    error: speechError,
+  } = useSpeechRecognition()
+
+  // Ref to store current projectId for streaming callbacks
+  const streamingProjectIdRef = useRef<string | null>(null)
+
+  // Streaming chat hook - used for simple messages without file uploads
+  const {
+    isStreaming,
+    streamedContent,
+    sendStreamingMessage,
+    cancelStream,
+  } = useStreamingChat({
+    onComplete: (fullResponse) => {
+      // Add message when streaming completes
+      if (streamingProjectIdRef.current) {
+        addMessage(streamingProjectIdRef.current, { role: 'assistant', content: fullResponse })
+      }
+      setIsLoading(false)
+      setThinkingStatus(null)
+    },
+    onError: (error) => {
+      // Handle streaming error
+      if (streamingProjectIdRef.current) {
+        addMessage(streamingProjectIdRef.current, {
+          role: 'assistant',
+          content: error.message || 'Sorry, I encountered an error. Please try again.'
+        })
+      }
+      setIsLoading(false)
+      setThinkingStatus(null)
+    }
+  })
+
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const landingInputRef = useRef<HTMLInputElement>(null)
   const mapViewRef = useRef<MapViewRef>(null)
 
@@ -346,20 +457,19 @@ export function AiChatPage() {
   const showRightPanel = viewMode !== 'chat'
   const showChat = viewMode !== 'canvas'
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
+  // Update input when speech transcript changes
   useEffect(() => {
-    scrollToBottom()
-  }, [messages])
-
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`
+    if (transcript) {
+      setInput(transcript)
     }
-  }, [input])
+  }, [transcript])
+
+  // Show speech error as toast
+  useEffect(() => {
+    if (speechError) {
+      toast.addToast(speechError, 'error')
+    }
+  }, [speechError, toast])
 
   // State for resizable chat/map split
   const [chatPanelWidth, setChatPanelWidth] = useState(30) // percentage
@@ -410,6 +520,36 @@ export function AiChatPage() {
     }
   }, [viewMode, sidebar])
 
+  // Toggle speech recognition
+  const handleMicClick = useCallback(() => {
+    if (!isSpeechSupported) {
+      toast.addToast('Speech recognition is not supported in your browser', 'error')
+      return
+    }
+    if (isListening) {
+      stopListening()
+    } else {
+      startListening()
+    }
+  }, [isSpeechSupported, isListening, startListening, stopListening, toast])
+
+  // Regenerate last AI response
+  const handleRegenerate = useCallback(async (messageId: string) => {
+    // Find the message to regenerate
+    const messageIndex = messages.findIndex(m => m.id === messageId)
+    if (messageIndex === -1) return
+
+    // Find the user message that prompted this response
+    const userMessage = messages.slice(0, messageIndex).reverse().find(m => m.role === 'user')
+    if (!userMessage) return
+
+    // Set the input to the original user message and submit
+    setInput(userMessage.content)
+    // Note: The actual regeneration will happen when the user submits
+    // For now, we'll show a toast to indicate the message is ready to regenerate
+    toast.addToast('Message copied to input. Press Send to regenerate.', 'success')
+  }, [messages, toast])
+
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) {
       e.preventDefault()
@@ -459,6 +599,22 @@ export function AiChatPage() {
     setPendingFile(null)
     setSelectedAction(null)
 
+    // Determine if we can use streaming (simple messages without file/special actions)
+    const canUseStreaming = !fileToSend && !marketingToSend && !selectedAction && storesToSend.length === 0 && !activeFolderId
+
+    if (canUseStreaming) {
+      // Use streaming hook for simple messages
+      // Store projectId in ref for the onComplete/onError callbacks
+      streamingProjectIdRef.current = projectId
+      setThinkingStatus('executing')
+      // Fire and forget - callbacks handle completion/error
+      sendStreamingMessage(messageToSend, true).catch(() => {
+        // Error already handled by onError callback
+      })
+      return
+    }
+
+    // Use regular API for file uploads and complex actions
     const formData = new FormData()
     formData.append('message', messageToSend)
 
@@ -488,6 +644,7 @@ export function AiChatPage() {
     }
 
     try {
+      setThinkingStatus('thinking')
       const response = await fetch(getApiUrl('/chat/with-file'), {
         method: 'POST',
         body: formData,
@@ -533,10 +690,11 @@ export function AiChatPage() {
       addMessage(projectId, { role: 'assistant', content: data.response })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Sorry, I encountered an error. Please try again.'
-      console.error('Chat error:', error)
+      chatLogger.error('Chat request failed', error)
       addMessage(projectId, { role: 'assistant', content: errorMessage })
     } finally {
       setIsLoading(false)
+      setThinkingStatus(null)
     }
   }
 
@@ -625,7 +783,7 @@ export function AiChatPage() {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Sorry, I encountered an error generating the report. Please try again.'
-      console.error('Report generation error:', error)
+      chatLogger.error('Report generation failed', error)
       addMessage(activeProjectId, { role: 'assistant', content: errorMessage })
     } finally {
       setIsGeneratingReport(false)
@@ -737,7 +895,7 @@ export function AiChatPage() {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Sorry, I encountered an error generating the presentation. Please try again.'
-      console.error('Presentation generation error:', error)
+      chatLogger.error('Presentation generation failed', error)
       addMessage(activeProjectId, { role: 'assistant', content: errorMessage })
 
       // Remove the loading tab on error
@@ -839,6 +997,41 @@ export function AiChatPage() {
       window.open(action.downloadUrl, '_blank')
     }
   }, [])
+
+  // Handle presentation download via Slides API
+  const handleDownloadPresentation = useCallback(async (presentation: Presentation) => {
+    if (!presentation) return
+
+    // If we already have a download URL, use it
+    if (presentation.downloadUrl) {
+      await slides.downloadSlides(presentation.downloadUrl, `${presentation.storeName}-presentation.pptx`)
+      return
+    }
+
+    // Otherwise, try to generate and download via the slides API
+    const store = stores.find(s => s.id === presentation.storeId)
+    if (!store) {
+      toast.error('Store not found for presentation download')
+      return
+    }
+
+    toast.info('Generating presentation file...')
+
+    // Use the tapestry slides endpoint with store data
+    const result = await slides.generateTapestrySlides({
+      storeName: store.name,
+      location: store.address || '',
+      segments: store.segments,
+      theme: 'default',
+    })
+
+    if (result?.success && result.downloadUrl) {
+      await slides.downloadSlides(result.downloadUrl, result.filename)
+      toast.success('Presentation downloaded!')
+    } else {
+      toast.error('Failed to generate presentation. Please try again.')
+    }
+  }, [slides, stores, toast])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -1027,6 +1220,25 @@ export function AiChatPage() {
   }, [isAuthenticated, isLoading])
 
 
+  // Message action handlers
+  const handleCopyMessage = useCallback((messageId: string, content: string) => {
+    navigator.clipboard.writeText(content)
+    setCopiedMessageId(messageId)
+    toast.success('Copied to clipboard')
+    // Reset after 2 seconds
+    setTimeout(() => setCopiedMessageId(null), 2000)
+  }, [toast])
+
+  const handleMessageFeedback = useCallback((messageId: string, feedback: 'up' | 'down') => {
+    setFeedbackGiven(prev => ({ ...prev, [messageId]: feedback }))
+    toast.success(feedback === 'up' ? 'Thanks for the feedback!' : 'Thanks, we\'ll improve')
+    // TODO: Send feedback to backend
+  }, [toast])
+
+  const handleToggleAgentPanel = useCallback(() => {
+    setIsAgentPanelOpen(prev => !prev)
+  }, [])
+
   const handleToggleRightPanel = () => {
     // Toggle between chat and split view (expand/collapse)
     if (viewMode === 'split' || viewMode === 'canvas') {
@@ -1051,6 +1263,17 @@ export function AiChatPage() {
   // Determine if we're showing the landing state (new project, no messages)
   const isLandingState = isNewProject && !activeProjectId
 
+  // Get dynamic suggestions based on context
+  const getDynamicSuggestions = () => {
+    if (stores.length > 0) {
+      return getStoreBasedSuggestions(stores)
+    }
+    if (pendingFile) {
+      return uploadSuggestions
+    }
+    return defaultSuggestions
+  }
+
   // Props for LandingContent component
   const landingContentProps = {
     showRightPanel,
@@ -1067,6 +1290,9 @@ export function AiChatPage() {
     selectedAction,
     onSelectAction: setSelectedAction,
     onOpenPresentationModal: () => setIsPresentationModalOpen(true),
+    suggestions: getDynamicSuggestions(),
+    isListening,
+    onMicClick: handleMicClick,
   }
 
   // Full-screen Landing (chat view only, no project)
@@ -1101,138 +1327,33 @@ export function AiChatPage() {
           ) : (
             <>
               {/* Messages Area */}
-              <div className="flex-1 overflow-auto">
-                <div className={cn(
-                  'mx-auto py-6 space-y-6',
-                  showRightPanel ? 'max-w-full px-4' : 'max-w-3xl px-6'
-                )}>
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={cn(
-                        'flex',
-                        message.role === 'user' ? 'justify-end' : 'justify-start'
-                      )}
-                    >
-                      {message.role === 'user' ? (
-                        <div className="max-w-[85%] rounded-lg bg-primary text-primary-foreground px-4 py-3">
-                          <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
-                        </div>
-                      ) : (
-                        <div className="max-w-full">
-                          <div className="prose prose-sm prose-zinc max-w-none text-sm leading-relaxed [&>p]:my-3 [&>ul]:my-3 [&>ol]:my-3 [&>h1]:text-base [&>h1]:font-semibold [&>h1]:mt-6 [&>h1]:mb-3 [&>h2]:text-sm [&>h2]:font-semibold [&>h2]:mt-5 [&>h2]:mb-2 [&>h3]:text-sm [&>h3]:font-medium [&>h3]:mt-4 [&>h3]:mb-2 [&>strong]:font-semibold [&>p]:text-foreground">
-                            <ReactMarkdown>{message.content}</ReactMarkdown>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-
-                  {isLoading && (
-                    <div className="flex justify-start">
-                      <div className="flex items-center gap-1.5 px-1 py-2">
-                        <span className="h-2 w-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '0ms' }} />
-                        <span className="h-2 w-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '150ms' }} />
-                        <span className="h-2 w-2 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '300ms' }} />
-                      </div>
-                    </div>
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
-              </div>
+              <MessageList
+                messages={messages}
+                isLoading={isLoading}
+                isStreaming={isStreaming}
+                streamingContent={streamedContent}
+                thinkingStatus={thinkingStatus}
+                showRightPanel={showRightPanel}
+                copiedMessageId={copiedMessageId}
+                feedbackGiven={feedbackGiven}
+                onCopy={handleCopyMessage}
+                onFeedback={handleMessageFeedback}
+                onRegenerate={handleRegenerate}
+              />
 
               {/* Input Area */}
-              <div className={cn(
-                'p-4 shrink-0',
-                showRightPanel ? 'px-4' : 'px-6'
-              )}>
-                <div className={cn(
-                  'mx-auto',
-                  showRightPanel ? 'max-w-full' : 'max-w-3xl'
-                )}>
-                  {pendingFile && (
-                    <div className="mb-2 flex items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-sm w-fit">
-                      <FileSpreadsheet className="h-3.5 w-3.5 text-accent" />
-                      <span className="truncate max-w-[200px]">{pendingFile.name}</span>
-                      <button
-                        onClick={() => setPendingFile(null)}
-                        className="rounded p-0.5 hover:bg-muted"
-                      >
-                        <X className="h-3.5 w-3.5 text-muted-foreground" />
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="rounded-lg border bg-background shadow-sm">
-                    {/* Input Row */}
-                    <div className="px-4 py-3">
-                      <textarea
-                        ref={textareaRef}
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        placeholder="Ask anything about a location, building, market, or customer segment..."
-                        disabled={isLoading}
-                        rows={1}
-                        className="w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-50"
-                        style={{ maxHeight: '120px' }}
-                      />
-                    </div>
-
-                    {/* Action Buttons Row */}
-                    <div className="flex items-center justify-between px-3 py-2 border-t">
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept=".xlsx,.xls"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0]
-                          if (file) handleFileSelect(file)
-                          e.target.value = ''
-                        }}
-                        className="hidden"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted transition-colors"
-                      >
-                        <Plus className="h-5 w-5 text-muted-foreground" />
-                      </button>
-                      <div className="flex items-center gap-1">
-                        {/* Mic button - only show when not typing */}
-                        {!input.trim() && !pendingFile && (
-                          <button
-                            type="button"
-                            className="flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted transition-colors"
-                          >
-                            <Mic className="h-5 w-5 text-muted-foreground" />
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={handleSubmit}
-                          disabled={isLoading || (!input.trim() && !pendingFile)}
-                          className={cn(
-                            "flex h-9 w-9 items-center justify-center rounded-full transition-colors",
-                            (input.trim() || pendingFile)
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted text-muted-foreground"
-                          )}
-                        >
-                          {isLoading ? (
-                            <Loader2 className="h-5 w-5 animate-spin" />
-                          ) : (input.trim() || pendingFile) ? (
-                            <Send className="h-5 w-5" />
-                          ) : (
-                            <AudioLines className="h-5 w-5" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <ChatInput
+                input={input}
+                setInput={setInput}
+                pendingFile={pendingFile}
+                setPendingFile={setPendingFile}
+                isLoading={isLoading}
+                isListening={isListening}
+                showRightPanel={showRightPanel}
+                onSubmit={handleSubmit}
+                onFileSelect={handleFileSelect}
+                onMicClick={handleMicClick}
+              />
             </>
           )}
         </div>
@@ -1307,11 +1428,9 @@ export function AiChatPage() {
               />
             ) : (
               <StudioView
-                stores={stores}
                 selectedStore={selectedStore}
                 reportUrl={reportUrl}
                 isGeneratingReport={isGeneratingReport}
-                onStoreSelect={handleStoreSelect}
                 onBackToInfo={handleBackToInfo}
                 onTogglePanel={handleToggleRightPanel}
                 tabs={studioTabs}
@@ -1319,6 +1438,7 @@ export function AiChatPage() {
                 onTabSelect={handleTabSelect}
                 onTabClose={handleTabClose}
                 onSaveToLibrary={handleSaveToLibrary}
+                onDownloadPresentation={handleDownloadPresentation}
                 onRegenerateImage={handleRegenerateImage}
               />
             )}
@@ -1350,6 +1470,7 @@ export function AiChatPage() {
         onGenerate={handleGeneratePresentation}
         isGenerating={isGeneratingPresentation}
       />
+
     </div>
   )
 }

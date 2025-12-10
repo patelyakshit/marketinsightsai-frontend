@@ -24,10 +24,13 @@ import {
   Link,
   Star,
   Sparkles,
+  MapPin,
 } from 'lucide-react'
 import { cn } from '@/shared/utils/cn'
 import { Button } from '@/shared/components/ui/button'
 import { ArcGISMap, type ArcGISMapRef } from '@/shared/components/ArcGISMap'
+import { TapestryLookupWidget } from '@/shared/components/tapestry/TapestryLookupWidget'
+import { useTapestry } from '@/shared/hooks/useTapestry'
 import type { Store, MapLocation } from '@/shared/types'
 
 // Expose methods via ref for external control
@@ -45,7 +48,7 @@ interface MapViewProps {
   initialActiveTab?: ToolsTab
 }
 
-type ToolsTab = 'layers' | 'insights' | 'list'
+type ToolsTab = 'layers' | 'insights' | 'list' | 'lookup'
 
 // Layer data for the Layers panel
 const defaultLayers = [
@@ -209,7 +212,11 @@ export const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({
     { id: 'layers' as const, icon: Layers, label: 'Layers' },
     { id: 'insights' as const, icon: Lightbulb, label: 'Insights' },
     { id: 'list' as const, icon: List, label: 'List' },
+    { id: 'lookup' as const, icon: MapPin, label: 'Lookup' },
   ]
+
+  // Tapestry lookup hook
+  const tapestry = useTapestry()
 
   return (
     <div ref={containerRef} className="flex flex-col h-full bg-background">
@@ -683,6 +690,21 @@ export const MapView = forwardRef<MapViewRef, MapViewProps>(function MapView({
                       />
                     </>
                   )}
+                </div>
+              )}
+
+              {/* Tapestry Lookup Tab */}
+              {activeToolsTab === 'lookup' && (
+                <div className="flex-1 overflow-auto p-4">
+                  <TapestryLookupWidget
+                    onLookup={tapestry.lookup}
+                    isLoading={tapestry.isLookingUp}
+                    result={tapestry.lookupResult}
+                    error={tapestry.lookupError}
+                    onSelectSegment={() => {
+                      // TODO: Could zoom to segment location or show details
+                    }}
+                  />
                 </div>
               )}
             </div>

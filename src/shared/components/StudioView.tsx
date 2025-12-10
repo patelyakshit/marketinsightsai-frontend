@@ -27,11 +27,9 @@ import { downloadPdf } from '@/shared/utils/downloadPdf'
 import type { Store, StudioTab, MarketingPost, Presentation as PresentationType } from '@/shared/types'
 
 interface StudioViewProps {
-  stores: Store[]
   selectedStore: Store | null
   reportUrl: string | null
   isGeneratingReport: boolean
-  onStoreSelect: (store: Store) => void
   onBackToInfo: () => void
   onTogglePanel: () => void
   // New props for tabs

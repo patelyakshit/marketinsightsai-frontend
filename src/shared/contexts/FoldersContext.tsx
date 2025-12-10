@@ -1,11 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
 import type { Folder, FolderFile, FolderChat, FolderChatMessage } from '@/shared/types'
 import { useAuth } from './AuthContext'
-
-// API base URL - uses environment variable in production
-const API_BASE = import.meta.env.VITE_API_URL
-  ? `${import.meta.env.VITE_API_URL}/api`
-  : '/api'
+import { API_BASE } from '@/shared/hooks/useApi'
 
 // Helper to get auth headers
 function getAuthHeaders(): HeadersInit {

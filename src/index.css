@@ -60,12 +60,43 @@
   --color-warning: #f59e0b;
   --color-warning-foreground: #ffffff;
 
+  /* ========================================
+     Agent Status Colors (NEW)
+     ======================================== */
+  --color-agent-thinking: #8b5cf6;
+  --color-agent-executing: #3b82f6;
+  --color-agent-success: #22c55e;
+  --color-agent-waiting: #f59e0b;
+  --color-agent-error: #ef4444;
+
+  /* ========================================
+     AI Provider Brand Colors (NEW)
+     ======================================== */
+  --color-openai: #10a37f;
+  --color-anthropic: #d97706;
+  --color-google: #4285f4;
+
+  /* ========================================
+     Task Status Colors (NEW)
+     ======================================== */
+  --color-task-queued: #94a3b8;
+  --color-task-running: #3b82f6;
+  --color-task-completed: #22c55e;
+  --color-task-failed: #ef4444;
+
   /* Smaller radii - shadcn style */
   --radius-sm: 0.25rem;
   --radius-md: 0.375rem;
   --radius-lg: 0.5rem;
   --radius-xl: 0.5rem;
   --radius-2xl: 0.5rem;
+
+  /* ========================================
+     Animation Duration Tokens (NEW)
+     ======================================== */
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
 }
 
 @layer base {
