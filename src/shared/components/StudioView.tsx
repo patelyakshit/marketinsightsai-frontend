@@ -60,7 +60,6 @@ interface StudioViewProps {
   reportUrl: string | null
   isGeneratingReport: boolean
   onBackToInfo: () => void
-  onTogglePanel: () => void
   // New props for tabs
   tabs?: StudioTab[]
   activeTabId?: string | null
@@ -92,7 +91,6 @@ export function StudioView({
   reportUrl,
   isGeneratingReport,
   onBackToInfo,
-  onTogglePanel,
   tabs = [],
   activeTabId,
   onTabSelect,

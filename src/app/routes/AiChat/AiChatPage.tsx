@@ -1256,15 +1256,6 @@ export function AiChatPage() {
     // TODO: Send feedback to backend
   }, [toast])
 
-  const handleToggleRightPanel = () => {
-    // Toggle between chat and split view (expand/collapse)
-    if (viewMode === 'split' || viewMode === 'canvas') {
-      setViewMode('chat')
-    } else {
-      setViewMode('split')
-    }
-  }
-
   // Calculate chat panel style based on view mode
   const getChatPanelStyle = (): React.CSSProperties => {
     if (viewMode === 'chat') return { width: '100%' }
@@ -1449,7 +1440,6 @@ export function AiChatPage() {
                 reportUrl={reportUrl}
                 isGeneratingReport={isGeneratingReport}
                 onBackToInfo={handleBackToInfo}
-                onTogglePanel={handleToggleRightPanel}
                 tabs={studioTabs}
                 activeTabId={activeStudioTabId}
                 onTabSelect={handleTabSelect}
