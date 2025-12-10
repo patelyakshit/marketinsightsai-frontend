@@ -8,7 +8,6 @@ import {
   ChevronLeft,
   Loader2,
   Maximize2,
-  PanelLeftClose,
   X,
   Image,
   Instagram,
@@ -347,23 +346,6 @@ export function StudioView({
               </Button>
             </>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            title="Fullscreen"
-          >
-            <Maximize2 className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={onTogglePanel}
-            title="Collapse panel"
-          >
-            <PanelLeftClose className="h-3.5 w-3.5" />
-          </Button>
         </div>
       </div>
 
@@ -406,10 +388,10 @@ export function StudioView({
                 </div>
               </div>
               {/* Report Preview iframe */}
-              <div className="flex-1 p-3">
+              <div className="flex-1 p-3 flex justify-center">
                 <iframe
                   src={getIframeUrl(activeTab.reportUrl)}
-                  className="h-full w-full rounded border bg-white"
+                  className="h-full w-full max-w-4xl rounded border bg-white"
                   title="Report Preview"
                 />
               </div>
@@ -436,10 +418,10 @@ export function StudioView({
 
           {/* Legacy: Report Preview (no tabs) */}
           {showReportPreview && reportUrl && (
-            <div className="h-full p-3">
+            <div className="h-full p-3 flex justify-center">
               <iframe
                 src={getIframeUrl(reportUrl)}
-                className="h-full w-full rounded border bg-white"
+                className="h-full w-full max-w-4xl rounded border bg-white"
                 title="Report Preview"
               />
             </div>
