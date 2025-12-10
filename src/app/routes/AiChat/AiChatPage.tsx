@@ -811,6 +811,46 @@ export function AiChatPage() {
     }
   }
 
+  const handleBatchExport = async (storeIds: string[]) => {
+    if (storeIds.length === 0) return
+
+    chatLogger.info(`Starting batch export for ${storeIds.length} stores`)
+
+    try {
+      const response = await fetch(getApiUrl('/reports/batch-export'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          store_ids: storeIds,
+          stores_data: stores,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || `Export failed: ${response.status}`)
+      }
+
+      // Download the ZIP file
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `tapestry_reports_${storeIds.length}_stores.zip`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+
+      chatLogger.info('Batch export completed successfully')
+    } catch (error) {
+      chatLogger.error('Batch export failed', error)
+      throw error
+    }
+  }
+
   const handleGeneratePresentation = async (storeId: string, template: PresentationTemplate, customTitle?: string) => {
     if (!activeProjectId) return
     if (isGeneratingPresentation) return
@@ -1430,6 +1470,7 @@ export function AiChatPage() {
                 selectedStore={selectedStore}
                 onStoreSelect={handleStoreSelect}
                 onGenerateReport={handleGenerateReport}
+                onBatchExport={handleBatchExport}
                 onMapReady={handleMapReady}
                 initialToolsExpanded={stores.length > 0}
                 initialActiveTab={stores.length > 0 ? 'list' : 'layers'}
