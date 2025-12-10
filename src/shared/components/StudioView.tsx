@@ -350,12 +350,32 @@ export function StudioView({
 
           {/* Report Tab Content */}
           {showTabContent && activeTab?.type === 'report' && activeTab.reportUrl && (
-            <div className="h-full p-3">
-              <iframe
-                src={activeTab.reportUrl}
-                className="h-full w-full rounded border bg-white"
-                title="Report Preview"
-              />
+            <div className="h-full p-4 flex flex-col">
+              {/* Report Preview Card */}
+              <div className="flex-1 flex flex-col items-center justify-center bg-muted/30 rounded-lg border-2 border-dashed">
+                <FileText className="h-16 w-16 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">{activeTab.title || 'Report'}</h3>
+                <p className="text-sm text-muted-foreground mb-6 text-center max-w-md">
+                  Your report is ready. Click below to view it in a new tab or download it.
+                </p>
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => activeTab.reportUrl && window.open(activeTab.reportUrl, '_blank')}
+                    className="gap-2"
+                  >
+                    <Maximize2 className="h-4 w-4" />
+                    Open in New Tab
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => activeTab.reportUrl && downloadPdf(activeTab.reportUrl, `${activeTab.title || 'report'}.html`)}
+                    className="gap-2"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
 

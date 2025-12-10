@@ -171,6 +171,7 @@ export interface StudioTab {
   type: StudioTabType
   title: string
   isLoading: boolean
+  createdAt?: Date
   // Content depends on type
   reportUrl?: string | null
   marketingPost?: MarketingPost | null

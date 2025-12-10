@@ -577,6 +577,14 @@ export function AiChatPage() {
     const marketingToSend = pendingMarketing
     const messageToSend = fullMessage || 'Please analyze this tapestry file'
 
+    // Debug: Log stores being sent
+    chatLogger.info('Sending message', {
+      projectId,
+      storesCount: storesToSend.length,
+      hasFile: !!fileToSend,
+      activeProjectStores: activeProject?.stores?.length || 0,
+    })
+
     // Clear input state immediately to prevent duplicate submissions
     setInput('')
     setPendingFile(null)
@@ -652,7 +660,22 @@ export function AiChatPage() {
 
       // Handle report URL (from chat-based report generation)
       if (data.reportUrl) {
+        // Create a new report tab instead of replacing the single reportUrl
+        const reportTabId = `report-${Date.now()}`
+        const reportTab: StudioTab = {
+          id: reportTabId,
+          type: 'report',
+          title: data.reportStoreName || selectedStore?.name || 'Report',
+          reportUrl: data.reportUrl,
+          isLoading: false,
+          createdAt: new Date(),
+        }
+        setStudioTabs(prev => [...prev, reportTab])
+        setActiveStudioTabId(reportTabId)
+
+        // Also keep the project reportUrl for backwards compatibility
         setProjectReportUrl(projectId, data.reportUrl)
+
         // Switch to split view and studio tab to show the report
         if (viewMode === 'chat') {
           setViewMode('split')
@@ -736,6 +759,21 @@ export function AiChatPage() {
       const data = await response.json()
 
       if (data.reportUrl) {
+        // Create a new report tab
+        const reportTabId = `report-${Date.now()}`
+        const reportTab: StudioTab = {
+          id: reportTabId,
+          type: 'report',
+          title: store.name,
+          reportUrl: data.reportUrl,
+          isLoading: false,
+          createdAt: new Date(),
+        }
+        setStudioTabs(prev => [...prev, reportTab])
+        setActiveStudioTabId(reportTabId)
+        setRightPanelTab('studio')
+
+        // Also keep project reportUrl for backwards compatibility
         setProjectReportUrl(activeProjectId, data.reportUrl)
 
         // Auto-save to library
