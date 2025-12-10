@@ -26,6 +26,36 @@ import { Button } from '@/shared/components/ui/button'
 import { downloadPdf } from '@/shared/utils/downloadPdf'
 import type { Store, StudioTab, MarketingPost, Presentation as PresentationType } from '@/shared/types'
 
+// Get API base URL for proxying
+const getApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL
+  }
+  if (import.meta.env.DEV) {
+    return 'http://localhost:8000'
+  }
+  return ''
+}
+
+// Get the URL for iframe display - proxy external URLs through backend
+const getIframeUrl = (reportUrl: string) => {
+  // Check if this is an external URL (Supabase Storage)
+  const isExternalUrl = reportUrl.startsWith('http') && !reportUrl.includes('/api/reports/')
+
+  if (isExternalUrl) {
+    // Proxy through backend to ensure proper Content-Type headers
+    return `${getApiBaseUrl()}/api/reports/proxy-html?url=${encodeURIComponent(reportUrl)}`
+  }
+
+  // For local backend URLs, use directly
+  if (reportUrl.startsWith('http')) {
+    return reportUrl
+  }
+
+  // For relative URLs, prepend API base
+  return `${getApiBaseUrl()}${reportUrl}`
+}
+
 interface StudioViewProps {
   selectedStore: Store | null
   reportUrl: string | null
@@ -350,31 +380,38 @@ export function StudioView({
 
           {/* Report Tab Content */}
           {showTabContent && activeTab?.type === 'report' && activeTab.reportUrl && (
-            <div className="h-full p-4 flex flex-col">
-              {/* Report Preview Card */}
-              <div className="flex-1 flex flex-col items-center justify-center bg-muted/30 rounded-lg border-2 border-dashed">
-                <FileText className="h-16 w-16 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">{activeTab.title || 'Report'}</h3>
-                <p className="text-sm text-muted-foreground mb-6 text-center max-w-md">
-                  Your report is ready. Click below to view it in a new tab or download it.
-                </p>
-                <div className="flex gap-3">
+            <div className="h-full flex flex-col">
+              {/* Report Toolbar */}
+              <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30 shrink-0">
+                <span className="text-sm font-medium">{activeTab.title || 'Report'}</span>
+                <div className="flex gap-2">
                   <Button
+                    size="sm"
+                    variant="ghost"
                     onClick={() => activeTab.reportUrl && window.open(activeTab.reportUrl, '_blank')}
-                    className="gap-2"
+                    className="gap-1.5 h-8"
                   >
-                    <Maximize2 className="h-4 w-4" />
-                    Open in New Tab
+                    <Maximize2 className="h-3.5 w-3.5" />
+                    Open
                   </Button>
                   <Button
-                    variant="outline"
-                    onClick={() => activeTab.reportUrl && downloadPdf(activeTab.reportUrl, `${activeTab.title || 'report'}.html`)}
-                    className="gap-2"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => activeTab.reportUrl && downloadPdf(activeTab.reportUrl, `${activeTab.title || 'report'}.pdf`)}
+                    className="gap-1.5 h-8"
                   >
-                    <Download className="h-4 w-4" />
-                    Download
+                    <Download className="h-3.5 w-3.5" />
+                    PDF
                   </Button>
                 </div>
+              </div>
+              {/* Report Preview iframe */}
+              <div className="flex-1 p-3">
+                <iframe
+                  src={getIframeUrl(activeTab.reportUrl)}
+                  className="h-full w-full rounded border bg-white"
+                  title="Report Preview"
+                />
               </div>
             </div>
           )}
@@ -398,10 +435,10 @@ export function StudioView({
           )}
 
           {/* Legacy: Report Preview (no tabs) */}
-          {showReportPreview && (
+          {showReportPreview && reportUrl && (
             <div className="h-full p-3">
               <iframe
-                src={reportUrl}
+                src={getIframeUrl(reportUrl)}
                 className="h-full w-full rounded border bg-white"
                 title="Report Preview"
               />
